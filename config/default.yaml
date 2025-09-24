@@ -1,0 +1,74 @@
+# Default configuration for Document RAG English Study
+
+# Application settings
+app:
+  name: "Document RAG English Study"
+  version: "0.1.0"
+  debug: false
+
+# User settings (will be overridden by user configuration)
+user:
+  language: "ko"  # Default to Korean
+  document_directory: null
+  llm_provider: null
+
+# LLM provider settings
+llm:
+  openai:
+    model: "gpt-3.5-turbo"
+    max_tokens: 1000
+    temperature: 0.7
+  gemini:
+    model: "gemini-pro"
+    max_tokens: 1000
+    temperature: 0.7
+  ollama:
+    host: "localhost:11434"
+    model: "llama2"
+    max_tokens: 1000
+    temperature: 0.7
+
+# RAG settings
+rag:
+  chunk_size: 1000
+  chunk_overlap: 200
+  top_k_results: 5
+  similarity_threshold: 0.7
+
+# Embedding settings
+embeddings:
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  device: "cpu"  # or "cuda" if available
+
+# Vector database settings
+vector_db:
+  provider: "chromadb"
+  persist_directory: "./data/vector_db"
+  collection_name: "documents"
+
+# Document processing settings
+document_processing:
+  supported_formats: ["txt", "pdf", "docx", "md"]
+  max_file_size_mb: 50
+  encoding: "utf-8"
+
+# Conversation settings
+conversation:
+  max_history_length: 10
+  session_timeout_minutes: 30
+  auto_save_interval_seconds: 60
+
+# Logging settings
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/app.log"
+  max_file_size_mb: 10
+  backup_count: 5
+
+# Data storage settings
+storage:
+  data_directory: "./data"
+  sessions_directory: "./data/sessions"
+  config_file: "./data/user_config.yaml"
+  cache_directory: "./data/cache"
