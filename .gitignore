@@ -183,5 +183,6 @@ cache/
 # Session data
 sessions/
 
-# Model downloads
-models/
+# Model downloads (exclude ML model files but not source code models)
+/models/
+downloaded_models/
