@@ -9,7 +9,9 @@ for representing conversations, documents, configurations, and responses.
 from .conversation import (
     Message,
     LearningPoint,
-    ConversationSession
+    ConversationSession,
+    Interaction,
+    ConversationSummary
 )
 
 # Response models
@@ -53,6 +55,8 @@ __all__ = [
     'Message',
     'LearningPoint',
     'ConversationSession',
+    'Interaction',
+    'ConversationSummary',
     
     # Response models
     'Correction',

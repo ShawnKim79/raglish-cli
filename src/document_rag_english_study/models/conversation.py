@@ -183,3 +183,111 @@ class ConversationSession:
         """Create session from JSON string."""
         data = json.loads(json_str)
         return cls.from_dict(data)
+
+
+@dataclass
+class Interaction:
+    """대화에서 하나의 상호작용(사용자 입력 + 어시스턴트 응답)을 나타냅니다.
+    
+    Attributes:
+        user_message: 사용자의 메시지
+        assistant_message: 어시스턴트의 응답 메시지
+        learning_points: 이 상호작용에서 식별된 학습 포인트들
+        topics: 이 상호작용에서 다뤄진 주제들
+        timestamp: 상호작용이 발생한 시간
+    """
+    user_message: Message
+    assistant_message: Message
+    learning_points: List[LearningPoint] = field(default_factory=list)
+    topics: List[str] = field(default_factory=list)
+    timestamp: datetime = field(default_factory=datetime.now)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """상호작용을 딕셔너리로 변환합니다."""
+        return {
+            'user_message': self.user_message.to_dict(),
+            'assistant_message': self.assistant_message.to_dict(),
+            'learning_points': [lp.to_dict() for lp in self.learning_points],
+            'topics': self.topics,
+            'timestamp': self.timestamp.isoformat()
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Interaction':
+        """딕셔너리에서 상호작용을 생성합니다."""
+        return cls(
+            user_message=Message.from_dict(data['user_message']),
+            assistant_message=Message.from_dict(data['assistant_message']),
+            learning_points=[LearningPoint.from_dict(lp) for lp in data.get('learning_points', [])],
+            topics=data.get('topics', []),
+            timestamp=datetime.fromisoformat(data['timestamp'])
+        )
+
+
+@dataclass
+class ConversationSummary:
+    """대화 세션의 요약 정보를 나타냅니다.
+    
+    Attributes:
+        session_id: 세션 고유 식별자
+        duration_seconds: 대화 지속 시간 (초)
+        total_messages: 총 메시지 수
+        topics_covered: 다뤄진 주제들
+        learning_points: 식별된 학습 포인트들
+        key_vocabulary: 학습한 주요 어휘
+        grammar_points: 다뤄진 문법 포인트들
+        user_progress: 사용자 진행 상황 평가
+        recommendations: 향후 학습 권장사항
+        created_at: 요약 생성 시간
+    """
+    session_id: str
+    duration_seconds: float
+    total_messages: int
+    topics_covered: List[str]
+    learning_points: List[LearningPoint]
+    key_vocabulary: List[str] = field(default_factory=list)
+    grammar_points: List[str] = field(default_factory=list)
+    user_progress: str = ""
+    recommendations: List[str] = field(default_factory=list)
+    created_at: datetime = field(default_factory=datetime.now)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """요약을 딕셔너리로 변환합니다."""
+        return {
+            'session_id': self.session_id,
+            'duration_seconds': self.duration_seconds,
+            'total_messages': self.total_messages,
+            'topics_covered': self.topics_covered,
+            'learning_points': [lp.to_dict() for lp in self.learning_points],
+            'key_vocabulary': self.key_vocabulary,
+            'grammar_points': self.grammar_points,
+            'user_progress': self.user_progress,
+            'recommendations': self.recommendations,
+            'created_at': self.created_at.isoformat()
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ConversationSummary':
+        """딕셔너리에서 요약을 생성합니다."""
+        return cls(
+            session_id=data['session_id'],
+            duration_seconds=data['duration_seconds'],
+            total_messages=data['total_messages'],
+            topics_covered=data['topics_covered'],
+            learning_points=[LearningPoint.from_dict(lp) for lp in data.get('learning_points', [])],
+            key_vocabulary=data.get('key_vocabulary', []),
+            grammar_points=data.get('grammar_points', []),
+            user_progress=data.get('user_progress', ''),
+            recommendations=data.get('recommendations', []),
+            created_at=datetime.fromisoformat(data['created_at'])
+        )
+    
+    def to_json(self) -> str:
+        """요약을 JSON 문자열로 변환합니다."""
+        return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
+    
+    @classmethod
+    def from_json(cls, json_str: str) -> 'ConversationSummary':
+        """JSON 문자열에서 요약을 생성합니다."""
+        data = json.loads(json_str)
+        return cls.from_dict(data)
