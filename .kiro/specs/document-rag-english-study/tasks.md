@@ -77,7 +77,9 @@
     - API 키 관리 및 오류 처리
     - _Requirements: 2.2, 2.3, 2.4_
 
-  - [-] 4.3 Google Gemini 구현체 작성
+  - [x] 4.3 Google Gemini 구현체 작성
+
+
 
 
     - GeminiLanguageModel 클래스 구현
@@ -85,7 +87,10 @@
     - API 응답 파싱 및 오류 처리
     - _Requirements: 2.2, 2.3, 2.4_
 
-  - [ ] 4.4 Ollama 로컬 모델 구현체 작성
+  - [-] 4.4 Ollama 로컬 모델 구현체 작성
+
+
+
     - OllamaLanguageModel 클래스 구현
     - 로컬 Ollama 서버 연동
     - 연결 상태 확인 및 모델 가용성 검증

@@ -37,6 +37,7 @@ dependencies = [
     "pypdf>=6.1.0",
     "python-docx>=1.2.0",
     "markdown>=3.9",
+    "requests>=2.25.0",
 ]
 
 [project.optional-dependencies]
@@ -115,10 +116,6 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
-    "--cov=src/document_rag_english_study",
-    "--cov-report=term-missing",
-    "--cov-report=html",
-    "--cov-fail-under=90",
     "-v"
 ]
 

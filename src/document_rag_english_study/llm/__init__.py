@@ -13,6 +13,9 @@ from .base import (
     RateLimitError,
     MockLanguageModel
 )
+from .openai_model import OpenAILanguageModel
+from .gemini_model import GeminiLanguageModel
+from .ollama_model import OllamaLanguageModel
 
 __all__ = [
     'LanguageModel',
@@ -20,5 +23,8 @@ __all__ = [
     'APIConnectionError', 
     'AuthenticationError',
     'RateLimitError',
-    'MockLanguageModel'
+    'MockLanguageModel',
+    'OpenAILanguageModel',
+    'GeminiLanguageModel',
+    'OllamaLanguageModel'
 ]

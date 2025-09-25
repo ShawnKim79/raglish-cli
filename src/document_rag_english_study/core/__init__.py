@@ -1,4 +1,4 @@
 # Core application components
-from .application import ApplicationCore
+# from .application import ApplicationCore
 
-__all__ = ["ApplicationCore"]
+# __all__ = ["ApplicationCore"]
