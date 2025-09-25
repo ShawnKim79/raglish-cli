@@ -79,6 +79,7 @@
 
   - [-] 4.3 Google Gemini 구현체 작성
 
+
     - GeminiLanguageModel 클래스 구현
     - Google Gemini API 연동
     - API 응답 파싱 및 오류 처리

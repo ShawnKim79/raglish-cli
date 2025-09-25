@@ -143,3 +143,8 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
