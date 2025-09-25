@@ -102,6 +102,10 @@
 
 - [ ] 5. RAG 엔진 구현
   - [ ] 5.1 임베딩 생성기 구현
+
+
+
+
     - EmbeddingGenerator 클래스 구현
     - sentence-transformers를 활용한 텍스트 임베딩 생성
     - 배치 처리 및 캐싱 기능
