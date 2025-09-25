@@ -39,6 +39,15 @@ from .config import (
     SetupStatus
 )
 
+# LLM models
+from .llm import (
+    ErrorType,
+    GrammarError,
+    ImprovementSuggestion,
+    EnglishAnalysis,
+    LLMResponse
+)
+
 __all__ = [
     # Conversation models
     'Message',
@@ -65,4 +74,11 @@ __all__ = [
     'UserConfig',
     'Configuration',
     'SetupStatus',
+    
+    # LLM models
+    'ErrorType',
+    'GrammarError',
+    'ImprovementSuggestion',
+    'EnglishAnalysis',
+    'LLMResponse',
 ]

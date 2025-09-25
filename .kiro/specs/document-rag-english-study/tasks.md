@@ -39,6 +39,7 @@
 
 
 
+
   - [x] 3.1 문서 파서 구현
 
 
@@ -57,7 +58,12 @@
     - _Requirements: 1.1, 1.3, 1.4_
 
 - [ ] 4. LLM 추상화 레이어 구현
-  - [ ] 4.1 언어 모델 추상 클래스 구현
+
+
+
+
+  - [-] 4.1 언어 모델 추상 클래스 구현
+
     - LanguageModel 추상 베이스 클래스 정의
     - 공통 인터페이스 메서드 정의 (generate_response, translate_text, analyze_grammar)
     - _Requirements: 2.2, 4.3_

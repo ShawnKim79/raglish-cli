@@ -1,7 +1,24 @@
-# Language model components
-from .base import LanguageModel
-from .openai_model import OpenAILanguageModel
-from .gemini_model import GeminiLanguageModel
-from .ollama_model import OllamaLanguageModel
+"""
+LLM (Large Language Model) 모듈.
 
-__all__ = ["LanguageModel", "OpenAILanguageModel", "GeminiLanguageModel", "OllamaLanguageModel"]
+이 모듈은 다양한 언어 모델 제공업체들과의 통합을 위한 
+추상화 레이어와 구현체들을 포함합니다.
+"""
+
+from .base import (
+    LanguageModel,
+    LanguageModelError,
+    APIConnectionError,
+    AuthenticationError,
+    RateLimitError,
+    MockLanguageModel
+)
+
+__all__ = [
+    'LanguageModel',
+    'LanguageModelError',
+    'APIConnectionError', 
+    'AuthenticationError',
+    'RateLimitError',
+    'MockLanguageModel'
+]
