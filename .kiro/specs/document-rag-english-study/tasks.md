@@ -69,14 +69,16 @@
     - 공통 인터페이스 메서드 정의 (generate_response, translate_text, analyze_grammar)
     - _Requirements: 2.2, 4.3_
 
-  - [-] 4.2 OpenAI GPT 구현체 작성
+  - [x] 4.2 OpenAI GPT 구현체 작성
+
 
     - OpenAILanguageModel 클래스 구현
     - OpenAI API 연동 및 프롬프트 엔지니어링
     - API 키 관리 및 오류 처리
     - _Requirements: 2.2, 2.3, 2.4_
 
-  - [ ] 4.3 Google Gemini 구현체 작성
+  - [-] 4.3 Google Gemini 구현체 작성
+
     - GeminiLanguageModel 클래스 구현
     - Google Gemini API 연동
     - API 응답 파싱 및 오류 처리
