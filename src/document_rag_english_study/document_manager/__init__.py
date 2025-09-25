@@ -1,5 +1,16 @@
-# Document management components
-from .manager import DocumentManager
-from .parser import DocumentParser
+"""
+Document management module for the RAG English Study system.
 
-__all__ = ["DocumentManager", "DocumentParser"]
+This module provides document parsing and management functionality
+for handling various file formats and indexing operations.
+"""
+
+from .parser import DocumentParser, DocumentParsingError
+from .manager import DocumentManager, DocumentManagerError
+
+__all__ = [
+    'DocumentParser',
+    'DocumentParsingError',
+    'DocumentManager',
+    'DocumentManagerError'
+]
