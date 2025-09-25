@@ -62,13 +62,15 @@
 
 
 
-  - [-] 4.1 언어 모델 추상 클래스 구현
+  - [x] 4.1 언어 모델 추상 클래스 구현
+
 
     - LanguageModel 추상 베이스 클래스 정의
     - 공통 인터페이스 메서드 정의 (generate_response, translate_text, analyze_grammar)
     - _Requirements: 2.2, 4.3_
 
-  - [ ] 4.2 OpenAI GPT 구현체 작성
+  - [-] 4.2 OpenAI GPT 구현체 작성
+
     - OpenAILanguageModel 클래스 구현
     - OpenAI API 연동 및 프롬프트 엔지니어링
     - API 키 관리 및 오류 처리
