@@ -1,0 +1,12 @@
+This is a sample document for testing the RAG English Study system.
+
+The document contains various topics that can be used for English learning conversations.
+
+Technology and Innovation:
+Modern technology has revolutionized the way we communicate and learn. Artificial intelligence and machine learning are becoming increasingly important in education.
+
+Travel and Culture:
+Exploring different cultures through travel broadens our perspective and enhances our understanding of the world. Each country has unique traditions and customs.
+
+Health and Wellness:
+Maintaining a healthy lifestyle requires regular exercise, proper nutrition, and adequate sleep. Mental health is equally important as physical health.
