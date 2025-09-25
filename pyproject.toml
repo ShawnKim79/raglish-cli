@@ -39,6 +39,7 @@ dependencies = [
     "markdown>=3.9",
     "requests>=2.25.0",
     "sentence-transformers>=5.1.1",
+    "chromadb>=1.1.0",
 ]
 
 [project.optional-dependencies]
