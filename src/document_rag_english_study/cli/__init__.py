@@ -1,4 +1,4 @@
 # CLI interface components
-from .interface import CommandLineInterface
+from .interface import cli
 
-__all__ = ["CommandLineInterface"]
+__all__ = ["cli"]

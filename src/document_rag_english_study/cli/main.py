@@ -10,26 +10,14 @@ from pathlib import Path
 src_path = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(src_path))
 
-from document_rag_english_study.cli.interface import CommandLineInterface
-from document_rag_english_study.core.application import ApplicationCore
-from document_rag_english_study.utils.logger import setup_logger
+from document_rag_english_study.cli import cli
 
 
 def main() -> None:
     """Main entry point for the CLI application."""
     try:
-        # Setup logging
-        logger = setup_logger()
-        logger.info("Starting Document RAG English Study CLI")
-        
-        # Initialize application core
-        app_core = ApplicationCore()
-        
-        # Initialize CLI interface
-        cli = CommandLineInterface(app_core)
-        
-        # Run the CLI
-        cli.run()
+        # Run the CLI directly using Click
+        cli()
         
     except KeyboardInterrupt:
         print("\n\nApplication interrupted by user. Goodbye!")
