@@ -382,13 +382,75 @@ def chat(session_id: Optional[str], topic: Optional[str], save_session: bool) ->
 
 @cli.command()
 @click.option('--detailed', is_flag=True, help='상세한 설정 정보 표시')
-def status(detailed: bool) -> None:
-    """현재 설정 상태 확인"""
+@click.option('--json', 'output_json', is_flag=True, help='JSON 형식으로 출력')
+def status(detailed: bool, output_json: bool) -> None:
+    """현재 설정 및 인덱싱 상태 확인
+    
+    시스템의 전체 설정 상태, 문서 인덱싱 상태, LLM 연결 상태 등을 확인합니다.
+    
+    Examples:
+        english-study status                    # 기본 상태 확인
+        english-study status --detailed         # 상세 정보 포함
+        english-study status --json            # JSON 형식 출력
+    """
     try:
         config_manager = ConfigurationManager()
         setup_status = config_manager.get_setup_status()
         config = config_manager.get_config()
         
+        # JSON 출력 모드
+        if output_json:
+            import json
+            status_data = {
+                "overall_complete": setup_status.overall_complete,
+                "completion_percentage": setup_status.get_completion_percentage(),
+                "missing_steps": setup_status.get_missing_steps(),
+                "user_config": {
+                    "configured": setup_status.user_configured,
+                    "native_language": config.user.native_language,
+                    "learning_level": config.user.learning_level,
+                    "feedback_level": config.user.feedback_level,
+                    "session_timeout": config.user.session_timeout
+                },
+                "document_config": {
+                    "configured": setup_status.documents_configured,
+                    "directory": config.document.document_directory,
+                    "supported_formats": config.document.supported_formats,
+                    "chunk_size": config.document.chunk_size,
+                    "chunk_overlap": config.document.chunk_overlap
+                },
+                "llm_config": {
+                    "configured": setup_status.llm_configured,
+                    "provider": config.llm.provider if config.llm else None,
+                    "model_name": config.llm.model_name if config.llm else None,
+                    "temperature": config.llm.temperature if config.llm else None,
+                    "max_tokens": config.llm.max_tokens if config.llm else None
+                },
+                "system_info": {
+                    "config_file": str(config_manager.config_path),
+                    "version": config.version,
+                    "created_at": config.created_at,
+                    "updated_at": config.updated_at
+                }
+            }
+            
+            # 문서 인덱싱 정보 추가
+            try:
+                doc_manager = DocumentManager()
+                summary = doc_manager.get_document_summary()
+                status_data["indexing_info"] = {
+                    "total_documents": summary.total_documents,
+                    "total_words": summary.total_words,
+                    "file_types": summary.file_types,
+                    "last_indexed": summary.last_indexed.isoformat() if hasattr(summary, 'last_indexed') and summary.last_indexed else None
+                }
+            except Exception as e:
+                status_data["indexing_info"] = {"error": str(e)}
+            
+            click.echo(json.dumps(status_data, indent=2, ensure_ascii=False))
+            return
+        
+        # 일반 텍스트 출력 모드
         click.echo("📊 Document RAG English Study 시스템 상태\n")
         
         # 전체 설정 완료 상태
@@ -409,22 +471,35 @@ def status(detailed: bool) -> None:
         # 1. 모국어 설정
         user_config = config.user
         status_icon = "✅" if setup_status.user_configured else "❌"
-        click.echo(f"   {status_icon} 모국어: {user_config.native_language}")
+        language_names = {
+            'ko': '한국어', 'korean': '한국어',
+            'en': 'English', 'english': 'English',
+            'ja': '日本語', 'japanese': '日本語',
+            'zh': '中文', 'chinese': '中文'
+        }
+        language_display = language_names.get(user_config.native_language, user_config.native_language)
+        click.echo(f"   {status_icon} 모국어: {language_display}")
+        
         if detailed and setup_status.user_configured:
             click.echo(f"      - 학습 수준: {user_config.learning_level}")
             click.echo(f"      - 피드백 수준: {user_config.feedback_level}")
             click.echo(f"      - 세션 타임아웃: {user_config.session_timeout}분")
+            if user_config.preferred_topics:
+                click.echo(f"      - 선호 주제: {', '.join(user_config.preferred_topics[:3])}")
         
         # 2. 문서 디렉토리 설정
         doc_config = config.document
         status_icon = "✅" if setup_status.documents_configured else "❌"
         doc_path = doc_config.document_directory or "미설정"
+        if doc_path != "미설정":
+            doc_path = Path(doc_path).name + f" ({Path(doc_path).parent})"
         click.echo(f"   {status_icon} 문서 디렉토리: {doc_path}")
         
         if detailed and setup_status.documents_configured:
             click.echo(f"      - 지원 형식: {', '.join(doc_config.supported_formats)}")
             click.echo(f"      - 청크 크기: {doc_config.chunk_size}")
             click.echo(f"      - 청크 겹침: {doc_config.chunk_overlap}")
+            click.echo(f"      - 최대 파일 크기: {doc_config.max_file_size // (1024*1024)}MB")
             
             # 인덱싱된 문서 정보
             try:
@@ -436,13 +511,23 @@ def status(detailed: bool) -> None:
                     click.echo(f"      - 파일 형식별:")
                     for file_type, count in summary.file_types.items():
                         click.echo(f"        * {file_type.upper()}: {count}개")
-            except Exception:
-                click.echo("      - 인덱싱 정보: 확인 불가")
+                    
+                    # 인덱싱 상태 확인
+                    indexing_status = doc_manager.get_indexing_status()
+                    if indexing_status.is_indexing:
+                        progress = (indexing_status.processed_documents / indexing_status.total_documents * 100) if indexing_status.total_documents > 0 else 0
+                        click.echo(f"      - 인덱싱 진행 중: {progress:.1f}%")
+                    else:
+                        click.echo(f"      - 인덱싱 상태: 완료")
+                else:
+                    click.echo("      - 인덱싱된 문서가 없습니다")
+            except Exception as e:
+                click.echo(f"      - 인덱싱 정보: 확인 불가 ({str(e)})")
         
         # 3. LLM 설정
         llm_config = config.llm
         status_icon = "✅" if setup_status.llm_configured else "❌"
-        llm_provider = llm_config.provider if llm_config else "미설정"
+        llm_provider = llm_config.provider.upper() if llm_config else "미설정"
         click.echo(f"   {status_icon} LLM 제공업체: {llm_provider}")
         
         if detailed and setup_status.llm_configured and llm_config:
@@ -451,47 +536,390 @@ def status(detailed: bool) -> None:
             click.echo(f"      - 최대 토큰: {llm_config.max_tokens}")
             if llm_config.provider == 'ollama':
                 click.echo(f"      - 서버: {llm_config.host}")
+                # Ollama 서버 연결 상태 확인
+                try:
+                    import requests
+                    response = requests.get(f"http://{llm_config.host}", timeout=2)
+                    click.echo(f"      - 서버 상태: 🟢 연결됨")
+                except:
+                    click.echo(f"      - 서버 상태: 🔴 연결 불가")
             elif llm_config.api_key:
                 masked_key = llm_config.api_key[:8] + "..." if len(llm_config.api_key) > 8 else "***"
                 click.echo(f"      - API 키: {masked_key}")
         
         click.echo()
         
-        # 설정 파일 정보
+        # 시스템 정보
         if detailed:
-            click.echo("📁 설정 파일 정보:")
+            click.echo("🖥️  시스템 정보:")
             click.echo(f"   - 설정 파일: {config_manager.config_path}")
             click.echo(f"   - 설정 버전: {config.version}")
             if config.created_at:
                 click.echo(f"   - 생성일: {config.created_at}")
             if config.updated_at:
                 click.echo(f"   - 수정일: {config.updated_at}")
+            
+            # 디스크 사용량 정보
+            try:
+                import shutil
+                if config.document.document_directory:
+                    total, used, free = shutil.disk_usage(config.document.document_directory)
+                    click.echo(f"   - 문서 디렉토리 디스크 사용량: {used // (1024**3):.1f}GB / {total // (1024**3):.1f}GB")
+            except:
+                pass
+            
             click.echo()
         
         # 다음 단계 안내
         if not setup_status.overall_complete:
             click.echo("🚀 다음 단계:")
-            click.echo("   'setup' 명령어를 실행하여 초기 설정을 완료하세요.")
+            missing_steps = setup_status.get_missing_steps()
+            for step in missing_steps:
+                if "LLM" in step:
+                    click.echo("   • 'set-llm' 명령어로 LLM 제공업체를 설정하세요")
+                elif "Document" in step:
+                    click.echo("   • 'set-docs' 명령어로 문서 디렉토리를 설정하세요")
+                elif "User" in step:
+                    click.echo("   • 'set-language' 명령어로 사용자 설정을 완료하세요")
+            click.echo("   또는 'setup' 명령어로 통합 설정을 진행하세요")
         else:
             click.echo("💬 사용 가능한 명령어:")
-            click.echo("   'chat' - 대화형 영어 학습 시작")
-            click.echo("   'help' - 상세 도움말 보기")
+            click.echo("   • 'chat' - 대화형 영어 학습 시작")
+            click.echo("   • 'help' - 상세 도움말 보기")
+            click.echo("   • 'status --detailed' - 더 자세한 상태 정보")
     
     except Exception as e:
         click.echo(f"❌ 상태 확인 중 오류 발생: {str(e)}")
+        if detailed:
+            import traceback
+            click.echo(f"상세 오류: {traceback.format_exc()}")
         sys.exit(1)
 
 
 @cli.command()
-def help() -> None:
-    """상세 도움말"""
-    click.echo("📖 Document RAG English Study 도움말")
-    click.echo("\n1. 초기 설정:")
+@click.option('--command', help='특정 명령어에 대한 상세 도움말')
+@click.option('--examples', is_flag=True, help='사용 예제 표시')
+def help(command: Optional[str], examples: bool) -> None:
+    """상세 사용법 안내 및 예제 제공
+    
+    Document RAG English Study의 모든 기능과 사용법을 상세히 안내합니다.
+    
+    Examples:
+        english-study help                      # 전체 도움말
+        english-study help --command setup     # setup 명령어 상세 도움말
+        english-study help --examples          # 사용 예제 모음
+    """
+    if command:
+        _show_command_help(command)
+        return
+    
+    if examples:
+        _show_usage_examples()
+        return
+    
+    # 전체 도움말 표시
+    click.echo("📖 Document RAG English Study 상세 도움말\n")
+    
+    click.echo("🎯 프로그램 개요:")
+    click.echo("   관심사 기반 문서를 활용한 RAG(Retrieval-Augmented Generation) 영어 학습 시스템")
+    click.echo("   사용자의 관심 분야 문서들을 인덱싱하여 자연스러운 대화형 영어 학습을 제공합니다.\n")
+    
+    click.echo("🚀 빠른 시작:")
+    click.echo("   1. english-study setup          # 초기 설정 (모국어, 문서, LLM)")
+    click.echo("   2. english-study chat           # 대화형 영어 학습 시작")
+    click.echo("   3. english-study status         # 설정 상태 확인\n")
+    
+    click.echo("📋 주요 명령어:")
+    
+    # 설정 관련 명령어
+    click.echo("\n  🔧 설정 명령어:")
+    click.echo("     setup                        통합 초기 설정 가이드")
+    click.echo("     set-docs <directory>         문서 디렉토리 설정 및 인덱싱")
+    click.echo("     set-llm <provider>           LLM 제공업체 설정 (openai/gemini/ollama)")
+    click.echo("     set-language <language>      모국어 및 학습 설정")
+    
+    # 학습 관련 명령어
+    click.echo("\n  📚 학습 명령어:")
+    click.echo("     chat                         대화형 영어 학습 시작")
+    click.echo("     chat --topic <topic>         특정 주제로 대화 시작")
+    click.echo("     chat --session-id <id>       기존 세션 재개")
+    
+    # 정보 확인 명령어
+    click.echo("\n  ℹ️  정보 명령어:")
+    click.echo("     status                       현재 설정 상태 확인")
+    click.echo("     status --detailed            상세 설정 정보 표시")
+    click.echo("     status --json               JSON 형식으로 상태 출력")
+    click.echo("     help                         이 도움말 표시")
+    click.echo("     help --command <cmd>         특정 명령어 상세 도움말")
+    click.echo("     help --examples              사용 예제 모음")
+    
+    click.echo("\n💡 지원 기능:")
+    click.echo("   • 다양한 문서 형식 지원 (PDF, DOCX, TXT, MD)")
+    click.echo("   • 다중 LLM 제공업체 지원 (OpenAI, Google Gemini, Ollama)")
+    click.echo("   • 실시간 문법 교정 및 어휘 제안")
+    click.echo("   • 관심사 기반 대화 주제 생성")
+    click.echo("   • 학습 진행 상황 추적")
+    click.echo("   • 다국어 피드백 지원")
+    
+    click.echo("\n🔗 추가 정보:")
+    click.echo("   • 각 명령어에 --help 옵션을 추가하면 상세 사용법을 확인할 수 있습니다")
+    click.echo("   • 예시: english-study setup --help")
+    click.echo("   • 문제 발생 시 'status --detailed'로 시스템 상태를 확인하세요")
+    
+    click.echo("\n📞 문제 해결:")
+    click.echo("   • 설정이 완료되지 않은 경우: 'setup' 명령어 실행")
+    click.echo("   • 문서 인덱싱 실패: 문서 형식 및 권한 확인")
+    click.echo("   • LLM 연결 실패: API 키 또는 서버 상태 확인")
+    click.echo("   • 대화 시작 불가: 'status' 명령어로 설정 상태 확인")
+
+
+def _show_command_help(command: str) -> None:
+    """특정 명령어에 대한 상세 도움말을 표시합니다.
+    
+    Args:
+        command: 도움말을 표시할 명령어
+    """
+    command_help = {
+        'setup': {
+            'description': '초기 설정을 위한 통합 가이드',
+            'usage': 'english-study setup',
+            'details': [
+                '모국어 설정 (한국어, 영어, 일본어, 중국어)',
+                '문서 디렉토리 설정 및 자동 인덱싱',
+                'LLM 제공업체 설정 (OpenAI, Gemini, Ollama)',
+                '설정 완료 상태 확인'
+            ],
+            'examples': [
+                'english-study setup  # 대화형 설정 시작'
+            ]
+        },
+        'set-docs': {
+            'description': '문서 디렉토리 설정 및 인덱싱',
+            'usage': 'english-study set-docs <directory> [options]',
+            'options': [
+                '--no-index: 인덱싱을 수행하지 않고 디렉토리만 설정'
+            ],
+            'details': [
+                '지원 형식: PDF, DOCX, TXT, MD',
+                '자동 텍스트 추출 및 청크 분할',
+                '벡터 임베딩 생성 및 저장',
+                '진행률 표시 및 오류 보고'
+            ],
+            'examples': [
+                'english-study set-docs ./documents',
+                'english-study set-docs ~/my-papers --no-index'
+            ]
+        },
+        'set-llm': {
+            'description': 'LLM 제공업체 설정',
+            'usage': 'english-study set-llm <provider> [options]',
+            'options': [
+                '--api-key: API 키 (OpenAI, Gemini 필수)',
+                '--model: 모델명',
+                '--host: Ollama 서버 주소',
+                '--temperature: 응답 생성 온도 (0.0-2.0)',
+                '--max-tokens: 최대 토큰 수'
+            ],
+            'details': [
+                'OpenAI: GPT-3.5-turbo, GPT-4 등',
+                'Gemini: gemini-pro, gemini-pro-vision 등',
+                'Ollama: 로컬 모델 (llama2, mistral 등)',
+                'API 키는 환경 변수로도 설정 가능'
+            ],
+            'examples': [
+                'english-study set-llm openai --api-key sk-...',
+                'english-study set-llm gemini --api-key AIza...',
+                'english-study set-llm ollama --model llama2'
+            ]
+        },
+        'set-language': {
+            'description': '모국어 및 학습 설정',
+            'usage': 'english-study set-language <language> [options]',
+            'options': [
+                '--learning-level: 학습 수준 (beginner/intermediate/advanced)',
+                '--feedback-level: 피드백 상세도 (minimal/normal/detailed)'
+            ],
+            'details': [
+                '지원 언어: ko(한국어), en(영어), ja(일본어), zh(중국어)',
+                '학습 수준에 따른 맞춤형 피드백',
+                '피드백 상세도 조절 가능'
+            ],
+            'examples': [
+                'english-study set-language ko',
+                'english-study set-language ko --learning-level beginner',
+                'english-study set-language en --feedback-level detailed'
+            ]
+        },
+        'chat': {
+            'description': '대화형 영어 학습 시작',
+            'usage': 'english-study chat [options]',
+            'options': [
+                '--session-id: 재개할 세션 ID',
+                '--topic: 선호하는 대화 주제',
+                '--save-session/--no-save-session: 세션 저장 여부'
+            ],
+            'details': [
+                'RAG 기반 관심사 대화',
+                '실시간 문법 교정',
+                '어휘 향상 제안',
+                '학습 진행 상황 추적',
+                '대화 중 특수 명령어 지원'
+            ],
+            'examples': [
+                'english-study chat',
+                'english-study chat --topic "artificial intelligence"',
+                'english-study chat --session-id abc123'
+            ],
+            'chat_commands': [
+                '/help: 대화 중 도움말',
+                '/topics: 대화 주제 제안',
+                '/progress: 학습 진행 상황',
+                '/quit: 대화 종료'
+            ]
+        },
+        'status': {
+            'description': '현재 설정 및 인덱싱 상태 확인',
+            'usage': 'english-study status [options]',
+            'options': [
+                '--detailed: 상세한 설정 정보 표시',
+                '--json: JSON 형식으로 출력'
+            ],
+            'details': [
+                '전체 설정 완료 상태',
+                '개별 구성 요소 상태',
+                '문서 인덱싱 정보',
+                'LLM 연결 상태',
+                '시스템 정보'
+            ],
+            'examples': [
+                'english-study status',
+                'english-study status --detailed',
+                'english-study status --json'
+            ]
+        }
+    }
+    
+    if command not in command_help:
+        click.echo(f"❌ 알 수 없는 명령어: {command}")
+        click.echo("사용 가능한 명령어: setup, set-docs, set-llm, set-language, chat, status")
+        return
+    
+    help_info = command_help[command]
+    
+    click.echo(f"📖 '{command}' 명령어 상세 도움말\n")
+    click.echo(f"📝 설명: {help_info['description']}")
+    click.echo(f"💻 사용법: {help_info['usage']}")
+    
+    if 'options' in help_info:
+        click.echo("\n⚙️  옵션:")
+        for option in help_info['options']:
+            click.echo(f"   {option}")
+    
+    if 'details' in help_info:
+        click.echo("\n🔍 상세 기능:")
+        for detail in help_info['details']:
+            click.echo(f"   • {detail}")
+    
+    if 'examples' in help_info:
+        click.echo("\n💡 사용 예제:")
+        for example in help_info['examples']:
+            click.echo(f"   {example}")
+    
+    if 'chat_commands' in help_info:
+        click.echo("\n🗨️  대화 중 명령어:")
+        for cmd in help_info['chat_commands']:
+            click.echo(f"   {cmd}")
+
+
+def _show_usage_examples() -> None:
+    """다양한 사용 예제를 표시합니다."""
+    click.echo("💡 Document RAG English Study 사용 예제 모음\n")
+    
+    click.echo("🚀 1. 처음 사용하는 경우:")
+    click.echo("   # 통합 설정으로 시작")
     click.echo("   english-study setup")
-    click.echo("\n2. 영어 학습 시작:")
+    click.echo("   ")
+    click.echo("   # 또는 단계별 설정")
+    click.echo("   english-study set-language ko")
+    click.echo("   english-study set-docs ./my-documents")
+    click.echo("   english-study set-llm openai --api-key sk-your-key")
     click.echo("   english-study chat")
-    click.echo("\n3. 상태 확인:")
+    
+    click.echo("\n📚 2. 다양한 문서 형식 활용:")
+    click.echo("   # PDF 논문 모음으로 학습")
+    click.echo("   english-study set-docs ~/research-papers")
+    click.echo("   ")
+    click.echo("   # 기술 문서로 학습")
+    click.echo("   english-study set-docs ./tech-docs")
+    click.echo("   ")
+    click.echo("   # 소설이나 에세이로 학습")
+    click.echo("   english-study set-docs ~/books")
+    
+    click.echo("\n🤖 3. 다양한 LLM 제공업체 사용:")
+    click.echo("   # OpenAI GPT 사용")
+    click.echo("   english-study set-llm openai --api-key sk-... --model gpt-4")
+    click.echo("   ")
+    click.echo("   # Google Gemini 사용")
+    click.echo("   english-study set-llm gemini --api-key AIza...")
+    click.echo("   ")
+    click.echo("   # 로컬 Ollama 사용 (무료)")
+    click.echo("   english-study set-llm ollama --model llama2")
+    
+    click.echo("\n🎯 4. 맞춤형 학습 설정:")
+    click.echo("   # 초보자 설정")
+    click.echo("   english-study set-language ko --learning-level beginner --feedback-level detailed")
+    click.echo("   ")
+    click.echo("   # 고급자 설정")
+    click.echo("   english-study set-language en --learning-level advanced --feedback-level minimal")
+    
+    click.echo("\n💬 5. 대화형 학습 활용:")
+    click.echo("   # 기본 대화 시작")
+    click.echo("   english-study chat")
+    click.echo("   ")
+    click.echo("   # 특정 주제로 대화")
+    click.echo("   english-study chat --topic \"machine learning\"")
+    click.echo("   ")
+    click.echo("   # 이전 세션 재개")
+    click.echo("   english-study chat --session-id session_20240101_001")
+    
+    click.echo("\n🔍 6. 상태 확인 및 문제 해결:")
+    click.echo("   # 기본 상태 확인")
     click.echo("   english-study status")
+    click.echo("   ")
+    click.echo("   # 상세 정보 확인")
+    click.echo("   english-study status --detailed")
+    click.echo("   ")
+    click.echo("   # JSON 형식으로 출력 (스크립트 활용)")
+    click.echo("   english-study status --json")
+    
+    click.echo("\n🔧 7. 고급 사용법:")
+    click.echo("   # 문서만 설정하고 나중에 인덱싱")
+    click.echo("   english-study set-docs ./docs --no-index")
+    click.echo("   ")
+    click.echo("   # 세션 저장 없이 대화")
+    click.echo("   english-study chat --no-save-session")
+    click.echo("   ")
+    click.echo("   # 특정 명령어 도움말")
+    click.echo("   english-study help --command chat")
+    
+    click.echo("\n🌟 8. 실제 학습 시나리오:")
+    click.echo("   # 시나리오 1: 논문 읽기 학습")
+    click.echo("   english-study set-docs ~/research-papers")
+    click.echo("   english-study chat --topic \"research methodology\"")
+    click.echo("   ")
+    click.echo("   # 시나리오 2: 기술 블로그 학습")
+    click.echo("   english-study set-docs ~/tech-articles")
+    click.echo("   english-study chat --topic \"software development\"")
+    click.echo("   ")
+    click.echo("   # 시나리오 3: 비즈니스 문서 학습")
+    click.echo("   english-study set-docs ~/business-docs")
+    click.echo("   english-study chat --topic \"business strategy\"")
+    
+    click.echo("\n💡 팁:")
+    click.echo("   • 문서는 관심 있는 주제로 구성하면 학습 효과가 높아집니다")
+    click.echo("   • 정기적으로 새로운 문서를 추가하여 학습 내용을 확장하세요")
+    click.echo("   • 대화 중 모르는 표현이 나오면 자연스럽게 질문하세요")
+    click.echo("   • 학습 수준과 피드백 레벨을 조정하여 최적의 학습 경험을 찾으세요")
 
 
 def _start_interactive_chat_session(
