@@ -21,14 +21,16 @@ from ..models.document import (
     IndexingStatus, 
     DocumentSummary
 )
+from ..utils import (
+    get_logger, DocumentError, error_handler_decorator,
+    retry_on_error
+)
 
 
-logger = logging.getLogger(__name__)
+# logger는 각 메서드에서 get_logger(__name__)로 가져옴
 
 
-class DocumentManagerError(Exception):
-    """문서 관리자 관련 오류를 나타내는 예외 클래스."""
-    pass
+# DocumentManagerError는 DocumentError로 대체됨
 
 
 class DocumentManager:
@@ -77,6 +79,7 @@ class DocumentManager:
         """
         self._progress_callback = callback
     
+    @error_handler_decorator(context={"operation": "set_document_directory"})
     def set_document_directory(self, directory_path: str) -> IndexingResult:
         """문서 디렉토리를 설정하고 인덱싱을 수행합니다.
         
@@ -87,18 +90,19 @@ class DocumentManager:
             인덱싱 결과 정보
             
         Raises:
-            DocumentManagerError: 디렉토리 설정 또는 인덱싱 실패 시
+            DocumentError: 디렉토리 설정 또는 인덱싱 실패 시
         """
+        logger = get_logger(__name__)
         try:
             logger.info(f"Setting document directory: {directory_path}")
             
             # 디렉토리 유효성 검사
             directory = Path(directory_path)
             if not directory.exists():
-                raise DocumentManagerError(f"Directory does not exist: {directory_path}")
+                raise DocumentError(f"Directory does not exist: {directory_path}", file_path=directory_path)
             
             if not directory.is_dir():
-                raise DocumentManagerError(f"Path is not a directory: {directory_path}")
+                raise DocumentError(f"Path is not a directory: {directory_path}", file_path=directory_path)
             
             # 인덱싱 수행
             result = self.index_documents(directory_path)
@@ -113,8 +117,10 @@ class DocumentManager:
         except Exception as e:
             error_msg = f"Failed to set document directory {directory_path}: {str(e)}"
             logger.error(error_msg)
-            raise DocumentManagerError(error_msg) from e
+            raise DocumentError(error_msg, file_path=directory_path) from e
     
+    @error_handler_decorator(context={"operation": "index_documents"})
+    @retry_on_error(max_retries=2, delay=1.0)
     def index_documents(self, directory_path: str, max_workers: int = 4) -> IndexingResult:
         """디렉토리 내의 모든 지원되는 문서를 인덱싱합니다.
         
@@ -126,7 +132,7 @@ class DocumentManager:
             인덱싱 결과 정보
             
         Raises:
-            DocumentManagerError: 인덱싱 실패 시
+            DocumentError: 인덱싱 실패 시
         """
         start_time = time.time()
         result = IndexingResult(success=True)
@@ -219,7 +225,7 @@ class DocumentManager:
             result.add_error(error_msg)
             result.processing_time = time.time() - start_time
             
-            raise DocumentManagerError(error_msg) from e
+            raise DocumentError(error_msg, file_path=directory_path) from e
     
     def _scan_directory(self, directory_path: str) -> List[str]:
         """디렉토리를 스캔하여 지원되는 파일들을 찾습니다.

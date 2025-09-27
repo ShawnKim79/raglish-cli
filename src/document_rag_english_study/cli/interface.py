@@ -12,6 +12,10 @@ from ..document_manager import DocumentManager
 from ..conversation.engine import ConversationEngine
 from ..rag.engine import RAGEngine
 from ..llm import create_language_model
+from ..utils import (
+    get_logger, handle_error, error_handler_decorator,
+    DocumentRAGError, ConfigurationError, ValidationError
+)
 
 
 @click.group(invoke_without_command=True)
@@ -45,8 +49,12 @@ def show_welcome_message() -> None:
 
 
 @cli.command()
+@error_handler_decorator(context={"command": "setup"})
 def setup() -> None:
     """초기 설정 가이드"""
+    logger = get_logger(__name__)
+    logger.info("초기 설정 시작")
+    
     click.echo("🚀 Document RAG English Study 초기 설정을 시작합니다!\n")
     
     try:
@@ -190,8 +198,11 @@ def setup() -> None:
 @cli.command("set-docs")
 @click.argument('directory', type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option('--no-index', is_flag=True, help='인덱싱을 수행하지 않고 디렉토리만 설정')
+@error_handler_decorator(context={"command": "set-docs"})
 def set_docs(directory: str, no_index: bool) -> None:
     """문서 디렉토리 설정 및 인덱싱"""
+    logger = get_logger(__name__)
+    logger.info(f"문서 디렉토리 설정 시작: {directory}")
     try:
         directory_path = Path(directory).resolve()
         click.echo(f"📁 문서 디렉토리 설정: {directory_path}")
@@ -247,9 +258,12 @@ def set_docs(directory: str, no_index: bool) -> None:
 @click.option('--host', default='localhost:11434', help='Ollama 서버 주소 (기본값: localhost:11434)')
 @click.option('--temperature', type=float, default=0.7, help='응답 생성 온도 (0.0-2.0, 기본값: 0.7)')
 @click.option('--max-tokens', type=int, default=1000, help='최대 토큰 수 (기본값: 1000)')
+@error_handler_decorator(context={"command": "set-llm"})
 def set_llm(provider: str, api_key: Optional[str], model: Optional[str], 
            host: str, temperature: float, max_tokens: int) -> None:
     """LLM 제공업체 설정"""
+    logger = get_logger(__name__)
+    logger.info(f"LLM 설정 시작: {provider}")
     try:
         provider = provider.lower()
         click.echo(f"🤖 LLM 설정: {provider.upper()}")
@@ -309,8 +323,11 @@ def set_llm(provider: str, api_key: Optional[str], model: Optional[str],
               default='intermediate', help='영어 학습 수준 (기본값: intermediate)')
 @click.option('--feedback-level', type=click.Choice(['minimal', 'normal', 'detailed']), 
               default='normal', help='피드백 상세도 (기본값: normal)')
+@error_handler_decorator(context={"command": "set-language"})
 def set_language(language: str, learning_level: str, feedback_level: str) -> None:
     """모국어 및 학습 설정"""
+    logger = get_logger(__name__)
+    logger.info(f"언어 설정 시작: {language}")
     try:
         language = language.lower()
         language_names = {'ko': '한국어', 'en': 'English', 'ja': '日本語', 'zh': '中文'}
@@ -358,8 +375,11 @@ def set_language(language: str, learning_level: str, feedback_level: str) -> Non
 @click.option('--session-id', help='재개할 세션 ID')
 @click.option('--topic', help='선호하는 대화 주제')
 @click.option('--save-session/--no-save-session', default=True, help='세션 저장 여부')
+@error_handler_decorator(context={"command": "chat"})
 def chat(session_id: Optional[str], topic: Optional[str], save_session: bool) -> None:
     """대화형 영어 학습 시작"""
+    logger = get_logger(__name__)
+    logger.info("대화형 학습 세션 시작")
     try:
         # 설정 상태 확인
         config_manager = ConfigurationManager()
@@ -383,6 +403,7 @@ def chat(session_id: Optional[str], topic: Optional[str], save_session: bool) ->
 @cli.command()
 @click.option('--detailed', is_flag=True, help='상세한 설정 정보 표시')
 @click.option('--json', 'output_json', is_flag=True, help='JSON 형식으로 출력')
+@error_handler_decorator(context={"command": "status"})
 def status(detailed: bool, output_json: bool) -> None:
     """현재 설정 및 인덱싱 상태 확인
     
