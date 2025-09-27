@@ -27,7 +27,7 @@ from ..utils import (
 )
 
 
-# logger는 각 메서드에서 get_logger(__name__)로 가져옴
+logger = get_logger(__name__)
 
 
 # DocumentManagerError는 DocumentError로 대체됨
@@ -417,17 +417,21 @@ class DocumentManager:
             제거 성공 여부
         """
         try:
+            removed = False
             with self._cache_lock:
                 if document_id in self._documents_cache:
                     del self._documents_cache[document_id]
                     logger.info(f"Removed document: {document_id}")
-                    
-                    # 메타데이터 저장
-                    self._save_metadata()
-                    return True
+                    removed = True
                 else:
                     logger.warning(f"Document not found for removal: {document_id}")
                     return False
+            
+            # 락 해제 후 메타데이터 저장
+            if removed:
+                self._save_metadata()
+            
+            return removed
                     
         except Exception as e:
             logger.error(f"Error removing document {document_id}: {e}")
@@ -457,20 +461,25 @@ class DocumentManager:
     def _save_metadata(self) -> None:
         """문서 메타데이터를 파일에 저장합니다."""
         try:
+            # 락 범위를 최소화
             with self._cache_lock:
-                metadata = {
-                    'documents': {
-                        doc_id: doc.to_dict() 
-                        for doc_id, doc in self._documents_cache.items()
-                    },
-                    'last_updated': datetime.now().isoformat(),
-                    'total_documents': len(self._documents_cache)
+                documents_data = {
+                    doc_id: doc.to_dict() 
+                    for doc_id, doc in self._documents_cache.items()
                 }
+                total_documents = len(self._documents_cache)
+            
+            # 락 해제 후 파일 I/O 수행
+            metadata = {
+                'documents': documents_data,
+                'last_updated': datetime.now().isoformat(),
+                'total_documents': total_documents
+            }
             
             with open(self.metadata_file, 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, indent=2, ensure_ascii=False)
             
-            logger.debug(f"Saved metadata for {len(self._documents_cache)} documents")
+            logger.debug(f"Saved metadata for {total_documents} documents")
             
         except Exception as e:
             logger.error(f"Error saving metadata: {e}")
