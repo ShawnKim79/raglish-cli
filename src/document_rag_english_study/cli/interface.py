@@ -960,14 +960,50 @@ def _start_interactive_chat_session(
     try:
         config = config_manager.get_config()
         
+
         # 대화 엔진 초기화
         click.echo("🚀 대화형 영어 학습을 준비하고 있습니다...")
         
-        # RAG 엔진 초기화
-        rag_engine = RAGEngine()
+        # 벡터 데이터베이스 초기화
+        from ..rag.vector_database import VectorDatabase
+        from ..rag.embeddings import EmbeddingGenerator
+        
+        # 설정에서 벡터 DB 정보 가져오기
+        vector_db_config = getattr(config, 'vector_db', None)
+        persist_directory = vector_db_config.persist_directory if vector_db_config else "./data/vector_db"
+        collection_name = vector_db_config.collection_name if vector_db_config else "documents"
+        
+        vector_db = VectorDatabase(
+            collection_name=collection_name,
+            persist_directory=persist_directory
+        )
+        
+        # 임베딩 생성기 초기화
+        embeddings_config = getattr(config, 'embeddings', None)
+        model_name = embeddings_config.model if embeddings_config else "all-MiniLM-L6-v2"
+        
+        embedding_generator = EmbeddingGenerator(
+            model_name=model_name
+        )
         
         # LLM 초기화
-        llm = create_language_model(config.llm)
+        try:
+            llm = create_language_model(config.llm)
+            llm.initialize()  # LLM 초기화 메서드 호출
+            click.echo("✅ LLM 연결이 성공적으로 완료되었습니다.")
+        except Exception as llm_error:
+            click.echo(f"❌ LLM 초기화 실패: {str(llm_error)}")
+            raise
+        
+        # RAG 엔진 초기화 (LLM 포함)
+        rag_engine = RAGEngine(
+            vector_db=vector_db,
+            embedding_generator=embedding_generator,
+            llm=llm
+        )
+        
+        # 기존 인덱싱된 문서들 로드
+        rag_engine.load_existing_documents()
         
         # 대화 엔진 생성
         conversation_engine = ConversationEngine(

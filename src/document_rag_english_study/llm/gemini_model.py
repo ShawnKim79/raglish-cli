@@ -43,12 +43,14 @@ class GeminiLanguageModel(LanguageModel):
         self.max_output_tokens = kwargs.get('max_output_tokens', 1000)
         self.client = None
         
-        # 지원되는 모델 목록
+        # 지원되는 모델 목록 (기본값 - API에서 동적으로 가져올 예정)
         self.supported_models = [
+            'gemini-2.5-flash',
+            'gemini-2.5-pro', 
+            'gemini-2.0-flash',
+            'gemini-pro-latest',
             'gemini-pro',
-            'gemini-pro-vision',
-            'gemini-1.5-pro',
-            'gemini-1.5-flash'
+            'gemini-pro-vision'
         ]
     
     def initialize(self) -> None:
@@ -67,12 +69,34 @@ class GeminiLanguageModel(LanguageModel):
                     "Please install with: uv add google-generativeai"
                 )
             
-            # 모델명 검증
-            if self.model_name not in self.supported_models:
-                logger.warning(f"Model {self.model_name} not in supported list: {self.supported_models}")
-            
             # API 키 설정
             genai.configure(api_key=self.api_key)
+            
+            # 사용 가능한 모델 목록 가져오기
+            try:
+                available_models = self._get_available_models()
+                logger.info(f"사용 가능한 Gemini 모델: {available_models}")
+                
+                # 요청한 모델이 사용 가능한지 확인
+                if self.model_name not in available_models:
+                    logger.warning(f"요청한 모델 '{self.model_name}'이 사용 가능한 모델 목록에 없습니다.")
+                    logger.warning(f"사용 가능한 모델: {available_models}")
+                    
+                    # 대체 모델 제안
+                    if 'gemini-1.5-pro' in available_models:
+                        suggested_model = 'gemini-1.5-pro'
+                    elif 'gemini-pro' in available_models:
+                        suggested_model = 'gemini-pro'
+                    else:
+                        suggested_model = available_models[0] if available_models else None
+                    
+                    if suggested_model:
+                        logger.info(f"대체 모델로 '{suggested_model}' 사용을 권장합니다.")
+                        # 자동으로 대체하지 않고 사용자에게 알림만 제공
+                
+            except Exception as e:
+                logger.warning(f"사용 가능한 모델 목록을 가져올 수 없습니다: {e}")
+                logger.info("기본 모델 목록을 사용합니다.")
             
             # 모델 초기화
             self.client = genai.GenerativeModel(self.model_name)
@@ -128,40 +152,90 @@ class GeminiLanguageModel(LanguageModel):
             if context:
                 full_prompt = f"다음 컨텍스트를 참고하여 답변해주세요:\n\n{context}\n\n질문: {prompt}"
             
+            # 디버그: 최종 프롬프트 로깅
+            logger.debug(f"Final prompt to Gemini (length: {len(full_prompt)}): {full_prompt[:300]}...")
+            
             # 생성 설정
             generation_config = {
                 'temperature': kwargs.get('temperature', self.temperature),
                 'max_output_tokens': kwargs.get('max_output_tokens', self.max_output_tokens),
             }
             
+            # 안전성 설정 (최대한 관대하게)
+            safety_settings = [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH", 
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_NONE"
+                }
+            ]
+            
             # API 호출
             response = self.client.generate_content(
                 full_prompt,
-                generation_config=generation_config
+                generation_config=generation_config,
+                safety_settings=safety_settings
             )
             
             # 응답 검증
             if not response:
                 raise LanguageModelError("No response from Gemini API")
             
-            # 안전성 필터 확인
+            # 프롬프트 피드백 확인 (입력 차단)
             if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
-                if hasattr(response.prompt_feedback, 'block_reason'):
-                    raise LanguageModelError(f"Content blocked by safety filter: {response.prompt_feedback.block_reason}")
+                if hasattr(response.prompt_feedback, 'block_reason') and response.prompt_feedback.block_reason:
+                    raise LanguageModelError(f"Input blocked by safety filter: {response.prompt_feedback.block_reason}")
             
-            # 응답 텍스트 확인
-            if not hasattr(response, 'text') or not response.text:
-                # candidates를 통해 응답 확인
-                if hasattr(response, 'candidates') and response.candidates:
-                    candidate = response.candidates[0]
-                    if hasattr(candidate, 'content') and candidate.content:
-                        response_text = candidate.content.parts[0].text
-                    else:
-                        raise LanguageModelError("Empty response content from Gemini API")
-                else:
-                    raise LanguageModelError("No valid response from Gemini API")
-            else:
-                response_text = response.text
+            # 응답 후보 확인
+            if not hasattr(response, 'candidates') or not response.candidates:
+                raise LanguageModelError("No response candidates from Gemini API")
+            
+            candidate = response.candidates[0]
+            
+            # 후보의 완료 이유 확인
+            if hasattr(candidate, 'finish_reason'):
+                finish_reason = candidate.finish_reason
+                if finish_reason == 2:  # SAFETY
+                    raise LanguageModelError("Response blocked by safety filter. Try rephrasing your input with more neutral language.")
+                elif finish_reason == 3:  # RECITATION
+                    raise LanguageModelError("Response blocked due to recitation concerns.")
+                elif finish_reason == 4:  # OTHER
+                    raise LanguageModelError("Response generation failed for unknown reasons.")
+                elif finish_reason != 1:  # 1 = STOP (정상 완료)
+                    raise LanguageModelError(f"Response generation incomplete (finish_reason: {finish_reason})")
+            
+            # 응답 텍스트 추출
+            response_text = None
+            
+            # 방법 1: response.text 직접 접근 (안전하게)
+            try:
+                if hasattr(response, 'text') and response.text:
+                    response_text = response.text
+            except Exception:
+                pass  # text 속성 접근 실패 시 다른 방법 시도
+            
+            # 방법 2: candidates를 통한 접근
+            if not response_text and hasattr(candidate, 'content') and candidate.content:
+                if hasattr(candidate.content, 'parts') and candidate.content.parts:
+                    for part in candidate.content.parts:
+                        if hasattr(part, 'text') and part.text:
+                            response_text = part.text
+                            break
+            
+            # 응답 텍스트가 없는 경우
+            if not response_text:
+                raise LanguageModelError("No valid text content in Gemini API response")
             
             # 사용량 정보 계산
             usage = self._calculate_usage(full_prompt, response_text, response)
@@ -232,40 +306,37 @@ class GeminiLanguageModel(LanguageModel):
         self.validate_input(text)
         self._log_api_call("analyze_grammar", text_length=len(text))
         
-        # 문법 분석 프롬프트 구성
-        prompt = f"""다음 영어 텍스트를 분석하고 JSON 형식으로 결과를 제공해주세요. 
-사용자의 모국어는 {user_language}입니다.
+        # 문법 분석 프롬프트 구성 (단순화된 버전)
+        prompt = f"""Please analyze this English text and provide feedback in JSON format:
 
-분석할 텍스트: "{text}"
+Text: "{text}"
 
-다음 JSON 형식으로 응답해주세요:
+Respond with this JSON structure:
 {{
     "grammar_errors": [
         {{
-            "text": "오류가 있는 부분",
-            "error_type": "grammar|vocabulary|spelling|punctuation|syntax",
-            "position": [시작위치, 끝위치],
-            "suggestion": "수정 제안",
-            "explanation": "오류 설명 ({user_language}로)"
+            "text": "error text",
+            "error_type": "grammar",
+            "suggestion": "correction",
+            "explanation": "explanation in {user_language}"
         }}
     ],
-    "vocabulary_level": "beginner|intermediate|advanced",
-    "fluency_score": 0.0-1.0,
-    "complexity_score": 0.0-1.0,
+    "vocabulary_level": "beginner",
+    "fluency_score": 0.8,
     "suggestions": [
         {{
-            "category": "vocabulary|grammar|style",
-            "original": "원본 표현",
-            "improved": "개선된 표현", 
-            "reason": "개선 이유 ({user_language}로)",
-            "confidence": 0.0-1.0
+            "original": "original text",
+            "improved": "improved text",
+            "reason": "reason in {user_language}"
         }}
     ]
 }}
 
-JSON만 응답하고 다른 텍스트는 포함하지 마세요."""
+Only respond with valid JSON."""
         
         try:
+            # 디버그: 실제 사용되는 프롬프트 로깅
+            logger.debug(f"Grammar analysis prompt (length: {len(prompt)}): {prompt[:200]}...")
             response = self.generate_response(prompt, temperature=0.3)
             
             # JSON 응답 파싱
@@ -449,6 +520,33 @@ JSON 형식:
             }
         
         return metadata
+    
+    def _get_available_models(self) -> List[str]:
+        """Google Gemini API에서 사용 가능한 모델 목록을 가져옵니다.
+        
+        Returns:
+            List[str]: 사용 가능한 모델명 목록
+        """
+        try:
+            # Google Generative AI API를 통해 모델 목록 가져오기
+            models = self.genai.list_models()
+            
+            # generateContent를 지원하는 모델만 필터링
+            available_models = []
+            for model in models:
+                # 모델명에서 'models/' 접두사 제거
+                model_name = model.name.replace('models/', '')
+                
+                # generateContent 메서드를 지원하는 모델만 포함
+                if 'generateContent' in model.supported_generation_methods:
+                    available_models.append(model_name)
+            
+            return available_models
+            
+        except Exception as e:
+            logger.error(f"모델 목록 가져오기 실패: {e}")
+            # 실패 시 기본 모델 목록 반환
+            return self.supported_models
     
     def get_model_info(self) -> Dict[str, Any]:
         """Gemini 모델 정보를 반환합니다."""

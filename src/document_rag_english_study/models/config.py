@@ -80,7 +80,7 @@ class LLMConfig:
         return cls(
             provider=data['provider'],
             api_key=data.get('api_key'),
-            model_name=data.get('model_name', ''),
+            model_name=data.get('model_name') or '',  # None이면 빈 문자열, 값이 있으면 그 값 사용
             host=data.get('host', 'localhost:11434'),
             temperature=data.get('temperature', 0.7),
             max_tokens=data.get('max_tokens', 1000),

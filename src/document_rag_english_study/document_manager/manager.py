@@ -68,8 +68,44 @@ class DocumentManager:
         # 메타데이터 파일 경로
         self.metadata_file = self.storage_path / "documents_metadata.json"
         
+        # RAG 엔진 (지연 초기화)
+        self._rag_engine = None
+        
         # 기존 메타데이터 로드
         self._load_metadata()
+    
+    def _get_rag_engine(self):
+        """RAG 엔진을 지연 초기화합니다."""
+        if self._rag_engine is None:
+            try:
+                # 순환 import 방지를 위한 지연 import
+                from ..rag.engine import RAGEngine
+                from ..rag.vector_database import VectorDatabase
+                from ..rag.embeddings import EmbeddingGenerator
+                from ..llm.gemini_model import GeminiLanguageModel
+                
+                # RAG 엔진 구성 요소 초기화
+                vector_db = VectorDatabase(
+                    collection_name="documents",
+                    persist_directory="data/vector_db"
+                )
+                embedding_generator = EmbeddingGenerator()
+                llm = GeminiLanguageModel()
+                
+                # RAG 엔진 초기화
+                self._rag_engine = RAGEngine(
+                    vector_db=vector_db,
+                    embedding_generator=embedding_generator,
+                    llm=llm
+                )
+                
+                logger.info("RAG 엔진이 DocumentManager에 연동되었습니다.")
+                
+            except Exception as e:
+                logger.error(f"RAG 엔진 초기화 실패: {e}")
+                self._rag_engine = None
+        
+        return self._rag_engine
     
     def set_progress_callback(self, callback: Callable[[IndexingStatus], None]) -> None:
         """인덱싱 진행률 콜백 함수를 설정합니다.
@@ -270,6 +306,19 @@ class DocumentManager:
             
             # 문서 파싱
             document = self.parser.parse_file(file_path)
+            
+            # RAG 엔진에 문서 인덱싱 (벡터 임베딩 생성)
+            rag_engine = self._get_rag_engine()
+            if rag_engine and document:
+                try:
+                    indexing_result = rag_engine.index_document(document)
+                    if not indexing_result.success:
+                        logger.warning(f"RAG 인덱싱 실패: {file_path}, 오류: {indexing_result.errors}")
+                    else:
+                        logger.debug(f"RAG 인덱싱 성공: {file_path}")
+                except Exception as e:
+                    logger.error(f"RAG 인덱싱 중 오류 발생: {file_path}, 오류: {e}")
+            
             return document
             
         except DocumentParsingError as e:

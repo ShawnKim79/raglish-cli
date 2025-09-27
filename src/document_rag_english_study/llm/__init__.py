@@ -56,10 +56,10 @@ def create_language_model(llm_config: LLMConfig) -> LanguageModel:
                 raise ValueError("Gemini API 키가 필요합니다.")
             
             return GeminiLanguageModel(
+                model_name=llm_config.model_name,
                 api_key=llm_config.api_key,
-                model=llm_config.model_name,
                 temperature=llm_config.temperature,
-                max_tokens=llm_config.max_tokens
+                max_output_tokens=llm_config.max_tokens
             )
         
         elif provider == 'ollama':

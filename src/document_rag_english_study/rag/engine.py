@@ -59,6 +59,29 @@ class RAGEngine:
         
         logger.info("RAG 엔진 초기화 완료")
     
+    def load_existing_documents(self) -> None:
+        """
+        기존에 인덱싱된 문서들을 로드하여 _indexed_documents를 동기화합니다.
+        """
+        try:
+            # DocumentManager를 동적으로 import하여 순환 import 방지
+            from ..document_manager.manager import DocumentManager
+            
+            doc_manager = DocumentManager()
+            existing_documents = doc_manager.get_all_documents()
+            
+            # 기존 문서들을 _indexed_documents에 추가
+            for document in existing_documents:
+                self._indexed_documents[document.id] = document
+            
+            # 벡터 DB에서 총 청크 수 계산
+            self._total_chunks = self.vector_db.get_document_count()
+            
+            logger.info(f"기존 문서 {len(existing_documents)}개를 로드했습니다. 총 청크 수: {self._total_chunks}")
+            
+        except Exception as e:
+            logger.warning(f"기존 문서 로드 중 오류 발생: {e}")
+    
     def set_language_model(self, llm: LanguageModel) -> None:
         """
         언어 모델 설정
