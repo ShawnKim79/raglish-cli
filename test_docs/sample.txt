@@ -1,0 +1,11 @@
+This is a sample document for testing the RAG English Study system.
+
+The document contains information about artificial intelligence and machine learning.
+AI has become increasingly important in modern technology.
+Machine learning algorithms can process large amounts of data to find patterns.
+
+Natural language processing is a subset of AI that deals with human language.
+It enables computers to understand, interpret, and generate human language.
+
+Deep learning uses neural networks with multiple layers to solve complex problems.
+These networks can learn from data without being explicitly programmed.
