@@ -15,9 +15,9 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 
 from src.document_rag_english_study.document_manager.manager import (
-    DocumentManager,
-    DocumentManagerError
+    DocumentManager
 )
+from src.document_rag_english_study.utils import DocumentError
 from src.document_rag_english_study.document_manager.parser import DocumentParser
 from src.document_rag_english_study.models.document import (
     Document,
@@ -66,7 +66,7 @@ class TestDocumentManager:
     
     def test_set_document_directory_invalid_path(self):
         """존재하지 않는 디렉토리 설정 테스트."""
-        with pytest.raises(DocumentManagerError, match="Directory does not exist"):
+        with pytest.raises(DocumentError, match="Directory does not exist"):
             self.manager.set_document_directory("/nonexistent/directory")
     
     def test_set_document_directory_not_directory(self):
@@ -76,7 +76,7 @@ class TestDocumentManager:
         with open(temp_file, 'w') as f:
             f.write("test content")
         
-        with pytest.raises(DocumentManagerError, match="Path is not a directory"):
+        with pytest.raises(DocumentError, match="Path is not a directory"):
             self.manager.set_document_directory(temp_file)
     
     @patch.object(DocumentManager, 'index_documents')
@@ -576,15 +576,15 @@ class TestDocumentManagerIntegration:
         assert len(all_docs) == 2
 
 
-class TestDocumentManagerError:
-    """DocumentManagerError 예외 클래스 테스트."""
+class TestDocumentError:
+    """DocumentError 예외 클래스 테스트."""
     
-    def test_document_manager_error(self):
-        """DocumentManagerError 예외 테스트."""
+    def test_document_error(self):
+        """DocumentError 예외 테스트."""
         error_msg = "Test manager error"
         
-        with pytest.raises(DocumentManagerError) as exc_info:
-            raise DocumentManagerError(error_msg)
+        with pytest.raises(DocumentError) as exc_info:
+            raise DocumentError(error_msg)
         
         assert str(exc_info.value) == error_msg
         assert isinstance(exc_info.value, Exception)

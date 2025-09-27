@@ -6,11 +6,10 @@ for handling various file formats and indexing operations.
 """
 
 from .parser import DocumentParser, DocumentParsingError
-from .manager import DocumentManager, DocumentManagerError
+from .manager import DocumentManager
 
 __all__ = [
     'DocumentParser',
     'DocumentParsingError',
-    'DocumentManager',
-    'DocumentManagerError'
+    'DocumentManager'
 ]
