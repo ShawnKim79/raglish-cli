@@ -15,7 +15,7 @@ document:
   - md
 llm:
   additional_params: {}
-  api_key: AIzaSyAZKoEPuAPgLWf1rOh_KeG35eWFLYFk_s4
+  api_key: YOUR_API_KEY
   host: localhost:11434
   max_tokens: 1000
   model_name: gemini-2.5-flash
