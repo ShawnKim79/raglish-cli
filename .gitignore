@@ -25,7 +25,6 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-config.yaml
 
 # AI
 .gemini/settings.json
@@ -131,6 +130,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+config.yaml
 
 # Spyder project settings
 .spyderproject
