@@ -157,7 +157,7 @@ class DocumentManager:
     
     @error_handler_decorator(context={"operation": "index_documents"})
     @retry_on_error(max_retries=2, delay=1.0)
-    def index_documents(self, directory_path: str, max_workers: int = 4) -> IndexingResult:
+    def index_documents(self, directory_path: str, language: str = "english", max_workers: int = 4) -> IndexingResult:
         """디렉토리 내의 모든 지원되는 문서를 인덱싱합니다.
         
         Args:
@@ -199,7 +199,7 @@ class DocumentManager:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 # 각 파일에 대한 Future 생성
                 future_to_file = {
-                    executor.submit(self._index_single_document, file_path): file_path
+                    executor.submit(self._index_single_document, file_path, language): file_path
                     for file_path in supported_files
                 }
                 
@@ -288,7 +288,7 @@ class DocumentManager:
             logger.error(f"Error scanning directory {directory_path}: {e}")
             return []
     
-    def _index_single_document(self, file_path: str) -> Optional[Document]:
+    def _index_single_document(self, file_path: str, language: str = "english") -> Optional[Document]:
         """단일 문서를 인덱싱합니다.
         
         Args:
@@ -305,7 +305,7 @@ class DocumentManager:
                 return existing_doc
             
             # 문서 파싱
-            document = self.parser.parse_file(file_path)
+            document = self.parser.parse_file(file_path, language=language)
             
             # RAG 엔진에 문서 인덱싱 (벡터 임베딩 생성)
             rag_engine = self._get_rag_engine()

@@ -97,6 +97,7 @@ class DocumentConfig:
         supported_formats: List of supported file formats
         chunk_size: Size of text chunks for indexing
         chunk_overlap: Overlap between chunks
+        document_language: Language of the documents (e.g., 'english', 'auto')
         exclude_patterns: Patterns to exclude when scanning files
         max_file_size: Maximum file size to process (in bytes)
     """
@@ -104,6 +105,7 @@ class DocumentConfig:
     supported_formats: List[str] = field(default_factory=lambda: ['pdf', 'docx', 'txt', 'md'])
     chunk_size: int = 1000
     chunk_overlap: int = 200
+    document_language: str = "english"
     exclude_patterns: List[str] = field(default_factory=lambda: ['*.tmp', '*.log', '.*'])
     max_file_size: int = 50 * 1024 * 1024  # 50MB
     
@@ -138,6 +140,7 @@ class DocumentConfig:
             'supported_formats': self.supported_formats,
             'chunk_size': self.chunk_size,
             'chunk_overlap': self.chunk_overlap,
+            'document_language': self.document_language,
             'exclude_patterns': self.exclude_patterns,
             'max_file_size': self.max_file_size
         }
@@ -150,6 +153,7 @@ class DocumentConfig:
             supported_formats=data.get('supported_formats', ['pdf', 'docx', 'txt', 'md']),
             chunk_size=data.get('chunk_size', 1000),
             chunk_overlap=data.get('chunk_overlap', 200),
+            document_language=data.get('document_language', 'english'),
             exclude_patterns=data.get('exclude_patterns', ['*.tmp', '*.log', '.*']),
             max_file_size=data.get('max_file_size', 50 * 1024 * 1024)
         )

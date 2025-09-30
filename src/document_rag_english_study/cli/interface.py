@@ -112,7 +112,8 @@ def setup() -> None:
                     
                     # 문서 인덱싱 수행
                     doc_manager = DocumentManager()
-                    result = doc_manager.index_documents(str(directory_path))
+                    language = config_manager.get_document_config().document_language
+                    result = doc_manager.index_documents(str(directory_path), language=language)
                     
                     if result.success:
                         click.echo(f"✅ 문서 인덱싱 완료!")
@@ -228,7 +229,8 @@ def set_docs(directory: str, no_index: bool) -> None:
                         click.echo(f"현재 처리 중: {Path(status.current_file).name}")
             
             doc_manager.set_progress_callback(progress_callback)
-            result = doc_manager.index_documents(str(directory_path))
+            language = config_manager.get_document_config().document_language
+            result = doc_manager.index_documents(str(directory_path), language=language)
             
             if result.success:
                 click.echo(f"\n✅ 문서 인덱싱 완료!")

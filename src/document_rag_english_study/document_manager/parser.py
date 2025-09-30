@@ -159,11 +159,12 @@ class DocumentParser:
             logger.error(f"Error validating file {file_path}: {e}")
             return False
     
-    def parse_file(self, file_path: str) -> Optional[Document]:
+    def parse_file(self, file_path: str, language: str = "english") -> Optional[Document]:
         """파일을 파싱하여 Document 객체를 생성합니다.
         
         Args:
             file_path: 파싱할 파일의 경로
+            language: 문서의 언어 (기본값: "english")
             
         Returns:
             파싱된 Document 객체 또는 None (실패 시)
@@ -209,7 +210,7 @@ class DocumentParser:
                 file_type=file_type,
                 created_at=datetime.now(),
                 word_count=len(content.split()),
-                language="english",  # 기본값, 추후 언어 감지 기능 추가 가능
+                language=language,
                 file_hash=self._generate_file_hash(file_path)
             )
             
