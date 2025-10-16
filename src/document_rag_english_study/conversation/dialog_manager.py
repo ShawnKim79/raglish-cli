@@ -10,7 +10,7 @@ import random
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 
-from ..models.conversation import Message, ConversationSession
+from ..models.conversation import Message
 from ..models.response import SearchResult
 from ..rag.engine import RAGEngine
 from ..llm.base import LanguageModel
